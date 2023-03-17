@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Seeing Beyond the Brain: Masked Modeling Conditioned Diffusion Model for Human Vision Decoding
 <p align="center">
 <img src=assets/first_fig.png />
@@ -185,3 +186,6 @@ Weizmann Vision Lab](https://github.com/WeizmannVision) and [BOLD5000 team](http
 }
 
 ```
+=======
+# Mind-V
+>>>>>>> 510f159dda9c317c64db8203933af0a5f0021064

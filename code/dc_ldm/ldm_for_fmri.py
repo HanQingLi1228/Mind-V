@@ -49,7 +49,7 @@ class fLDM:
                  pretrain_root='../pretrains/ldm/label2img',
                  logger=None, ddim_steps=250, global_pool=True, use_time_cond=True):
         self.ckp_path = os.path.join(pretrain_root, 'model.ckpt')
-        self.config_path = os.path.join(pretrain_root, 'config.yaml') 
+        self.config_path = os.path.join(pretrain_root, 'config_custom.yaml') 
         config = OmegaConf.load(self.config_path)
         config.model.params.unet_config.params.use_time_cond = use_time_cond
         config.model.params.unet_config.params.global_pool = global_pool
@@ -71,7 +71,7 @@ class fLDM:
         model.p_channels = config.model.params.channels
         model.p_image_size = config.model.params.image_size
         model.ch_mult = config.model.params.first_stage_config.params.ddconfig.ch_mult
-
+        
         self.device = device    
         self.model = model
         self.ldm_config = config
@@ -88,14 +88,19 @@ class fLDM:
         # self.model.train_dataset = dataset
         self.model.run_full_validation_threshold = 0.15
         # stage one: train the cond encoder with the pretrained one
-      
+        #ffff = open("/userhome/cs2/ethanlii/mind-vis/model.txt", "w")
+        #ffff.write(self.model)
+        #print(self.model)
+        #import pdb
+        #pdb.set_trace()
         # # stage one: only optimize conditional encoders
         print('\n##### Stage One: only optimize conditional encoders #####')
         dataloader = DataLoader(dataset, batch_size=bs1, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False)
         self.model.unfreeze_whole_model()
         self.model.freeze_first_stage()
-
+        #import pdb
+        #pdb.set_trace()
         self.model.learning_rate = lr1
         self.model.train_cond_stage_only = True
         self.model.eval_avg = config.eval_avg

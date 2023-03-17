@@ -218,6 +218,8 @@ def create_Kamitani_dataset(path='../data/Kamitani/npz',  roi='VC', patch_size=1
     train_img_label_all = []
     test_img_label_all = []
     for sub in subjects:
+#        import pdb
+#        pdb.set_trace()
         npz = dict(np.load(os.path.join(path, f'{sub}.npz')))
         test_img.append(img_npz['test_images'])
         train_img.append(img_npz['train_images'][npz['arr_3']])
@@ -225,6 +227,8 @@ def create_Kamitani_dataset(path='../data/Kamitani/npz',  roi='VC', patch_size=1
         test_lb = test_img_label
         
         roi_mask = npz[roi]
+#        import pdb
+#       pdb.set_trace()
         tr = npz['arr_0'][..., roi_mask] # train
         tt = npz['arr_2'][..., roi_mask] 
         if include_nonavg_test:
@@ -319,12 +323,16 @@ class Kamitani_dataset(Dataset):
         return len(self.fmri)
     
     def __getitem__(self, index):
+        #self.fmri[index] len==50; self.fmri[0].shape: (4656,)
         fmri = self.fmri[index]
+        #fmri (4656,)
         if index >= len(self.image):
             img = np.zeros_like(self.image[0])
         else:
             img = self.image[index] / 255.0
+        #img (256, 256, 3)
         fmri = np.expand_dims(fmri, axis=0) # (1, num_voxels)
+        #(1, 4656)
         if self.return_image_class_info:
             img_class = self.img_class[index]
             img_class_name = self.img_class_name[index]
@@ -332,7 +340,8 @@ class Kamitani_dataset(Dataset):
             return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img),
                     'image_class': img_class, 'image_class_name': img_class_name, 'naive_label':naive_label}
         else:
-            return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img)}
+            #return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img)}
+            return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img), 'hint': self.fmri_transform(fmri)}
 
 class base_dataset(Dataset):
     def __init__(self, x, y=None, transform=identity):

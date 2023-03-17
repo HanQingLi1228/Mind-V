@@ -111,7 +111,8 @@ if __name__ == '__main__':
                 subjects=config.bold5000_subs)
     else:
         raise NotImplementedError
- 
+    #import pdb
+    #db.set_trace()
     num_voxels = dataset_test.num_voxels
     print(len(dataset_test))
     # prepare pretrained mae 

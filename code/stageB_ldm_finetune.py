@@ -4,6 +4,7 @@ import torch
 import argparse
 import datetime
 import wandb
+from torchinfo import summary
 import torchvision.transforms as transforms
 from einops import rearrange
 from PIL import Image
@@ -159,6 +160,8 @@ def main(config):
         generative_model.model.load_state_dict(model_meta['model_state_dict'])
         print('model resumed')
     # finetune the model
+    #import pdb
+    #pdb.set_trace()
     trainer = create_trainer(config.num_epoch, config.precision, config.accumulate_grad, logger, check_val_every_n_epoch=5)
     generative_model.finetune(trainer, fmri_latents_dataset_train, fmri_latents_dataset_test,
                 config.batch_size, config.lr, config.output_path, config=config)

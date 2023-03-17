@@ -731,29 +731,44 @@ class UNetModel(nn.Module):
         :param y: an [N] Tensor of labels, if class-conditional.
         :return: an [N x C x ...] Tensor of outputs.
         """
+        #y为空
+        #import pdb
+        #pdb.set_trace()
+        #可以del
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"
+        #可以del
         hs = []
+        #t_emb [3, 192]
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+        # emb [3, 768]
         emb = self.time_embed(t_emb)
-
+        #self.num_classes == None
         if self.num_classes is not None:
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
         if self.use_time_cond: # add time conditioning
+            #context [3, 77, 512]; c [3, 1, 768]
             c = self.time_embed_condtion(context)
             assert c.shape[1] == 1, f'found {c.shape}'
             emb = emb + torch.squeeze(c, dim=1)
-
+        #h, x [3,3,64,64]
         h = x.type(self.dtype)
         for module in self.input_blocks:
             h = module(h, emb, context)
+            # first step: Conv output [3, 192, 64, 64]
             hs.append(h)
+        #import pdb
+        #pdb.set_trace()
+        #print(self.middle_block[0].in_layers[2].weight[0][0])
+        # h [3, 960, 8, 8]
         h = self.middle_block(h, emb, context)
+        # h [3, 960, 8, 8]
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb, context)
+        #h [3, 192, 64, 64]
         h = h.type(x.dtype)
         if self.predict_codebook_ids:
             return self.id_predictor(h)
