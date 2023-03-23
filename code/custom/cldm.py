@@ -3,6 +3,7 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import einops
 from einops import rearrange, repeat
 from torchvision.utils import make_grid
 from dc_ldm.modules.attention2 import SpatialTransformer
@@ -16,20 +17,31 @@ from dc_ldm.modules.diffusionmodules.util import (
     zero_module,
     timestep_embedding,
 )
+from einops import repeat
 
 class ControlledUnetModel(UNetModel):
     def forward(self, x, timesteps=None, context=None, control=None, only_mid_control=False, **kwargs):
         hs = []
+        #import pdb
+        #pdb.set_trace()
         with torch.no_grad():
             t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
             emb = self.time_embed(t_emb)
-            if self.use_time_cond: # add time conditioning
-                #context [3, 77, 512]; c [3, 1, 768]
+            #import pdb
+            #Cpdb.set_trace()
+            '''if self.use_time_cond: # add time conditioning
+                #import pdb
+                #pdb.set_trace()
+                #context [3, 77, 768] 
+                #原c [3, 1, 768]
                 c = self.time_embed_condtion(context)
                 assert c.shape[1] == 1, f'found {c.shape}'
-                emb = emb + torch.squeeze(c, dim=1)
+                emb = emb + torch.squeeze(c, dim=1)'''
             h = x.type(self.dtype)
             for module in self.input_blocks:
+                #import pdb
+                #pdb.set_trace()
+                #print(module)
                 h = module(h, emb, context)
                 hs.append(h)
             h = self.middle_block(h, emb, context)
@@ -285,17 +297,28 @@ class ControlNet(nn.Module):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
     def forward(self, x, hint, timesteps, context, **kwargs):
+        # timesteps [3]
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
-
+        #import pdb
+        #pdb.set_trace()
+        # hint [3, 77, 512]
+        # emb [3, 1280]
+        # context [B, 77, 768]
         guided_hint = self.input_hint_block(hint, emb, context)
-
+        # guided_hint [320, 10, 96]
         outs = []
-
+        #import pdb
+        #pdb.set_trace()
+        # h[3, 3, 64, 64]
         h = x.type(self.dtype)
         for module, zero_conv in zip(self.input_blocks, self.zero_convs):
+            #print(module)
             if guided_hint is not None:
                 h = module(h, emb, context)
+                ####留了个坑！
+                guided_hint = h
+                # 第一个module出来, [3, 320, 64, 64]
                 h += guided_hint
                 guided_hint = None
             else:
@@ -319,27 +342,25 @@ class ControlLDM(LatentDiffusion):
 
     @torch.no_grad()
     def get_input(self, batch, k, bs=None, *args, **kwargs):
-        # batch dict: dict_keys(['jpg', 'txt', 'hint'])
-        #x: [B, 4, 64, 64] c:[B, 77, 768]
+        # batch dict: dict_keys(['fmri', 'image', 'hint'])
+        #x: [B=50, 3, 64, 64] c:[B=50, 1, 1, 4656]
         #import pdb
         #pdb.set_trace()
         x, c = super().get_input(batch, self.first_stage_key, *args, **kwargs)
-        # control [B, 512, 512, 3]
+        # control [B=50, 1, 4656]
         control = batch[self.control_key]
         if bs is not None:
             control = control[:bs]
         control = control.to(self.device)
-        control = einops.rearrange(control, 'b h w c -> b c h w')
+        #control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
         return x, dict(c_crossattn=[c], c_concat=[control])
 
     def apply_model(self, x_noisy, t, cond, *args, **kwargs):
         #import pdb
         #pdb.set_trace()
-        # 报错 cond.shape:[3, 77, 512]
+        ## 报错 cond.shape:[3, 77, 512]
         assert isinstance(cond, dict)
-        #import pdb
-        #pdb.set_trace()
         # self.model.diffusion_model : type ControlUnet
         diffusion_model = self.model.diffusion_model
         
@@ -350,7 +371,7 @@ class ControlLDM(LatentDiffusion):
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=None, only_mid_control=self.only_mid_control)
         else:
             # x_noisy : [B, 4, 64, 64] hint: [3, 512, 512]
-            # len(control) == 13
+            # len(control) == 13f
             control = self.control_model(x=x_noisy, hint=torch.cat(cond['c_concat'], 1), timesteps=t, context=cond_txt)
             # 给每层的control加权重
             control = [c * scale for c, scale in zip(control, self.control_scales)]
@@ -368,8 +389,6 @@ class ControlLDM(LatentDiffusion):
                    plot_diffusion_rows=False, unconditional_guidance_scale=9.0, unconditional_guidance_label=None,
                    use_ema_scope=True,
                    **kwargs):
-        import pdb
-        pdb.set_trace()
         use_ddim = ddim_steps is not None
 
         log = dict()

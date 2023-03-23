@@ -11,13 +11,14 @@ from torchvision.utils import make_grid
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from sc_mbm.mae_for_fmri import fmri_encoder
+from dc_ldm.modules.encoders.modules import FrozenCLIPEmbedder
 
 def create_model_from_config(config, num_voxels, global_pool):
     model = fmri_encoder(num_voxels=num_voxels, patch_size=config.patch_size, embed_dim=config.embed_dim,
                 depth=config.depth, num_heads=config.num_heads, mlp_ratio=config.mlp_ratio, global_pool=global_pool) 
     return model
 
-class cond_stage_model(nn.Module):
+class control_stage_model(nn.Module):
     def __init__(self, metafile, num_voxels, cond_dim=1280, global_pool=True):
         super().__init__()
         # prepare pretrained fmri mae 
@@ -48,8 +49,8 @@ class fLDM:
     def __init__(self, metafile, num_voxels, device=torch.device('cpu'),
                  pretrain_root='../pretrains/ldm/label2img',
                  logger=None, ddim_steps=250, global_pool=True, use_time_cond=True):
-        self.ckp_path = os.path.join(pretrain_root, 'model.ckpt')
-        self.config_path = os.path.join(pretrain_root, 'config_custom.yaml') 
+        self.ckp_path = os.path.join(pretrain_root, 'v1-5-pruned.ckpt')
+        self.config_path = '/home/hanqingli/Mind-V/code/custom/config_custom_control.yaml' 
         config = OmegaConf.load(self.config_path)
         config.model.params.unet_config.params.use_time_cond = use_time_cond
         config.model.params.unet_config.params.global_pool = global_pool
@@ -58,10 +59,14 @@ class fLDM:
 
         model = instantiate_from_config(config.model)
         pl_sd = torch.load(self.ckp_path, map_location="cpu")['state_dict']
-       
+        #import pdb
+        #pdb.set_trace()
+
         m, u = model.load_state_dict(pl_sd, strict=False)
-        model.cond_stage_trainable = True
-        model.cond_stage_model = cond_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
+        #model.cond_stage_trainable = True
+        model.cond_stage_trainable = False
+        #model.cond_stage_model = cond_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
+        model.control_stage_model = control_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
 
         model.ddim_steps = ddim_steps
         model.re_init_ema()
@@ -76,7 +81,7 @@ class fLDM:
         self.model = model
         self.ldm_config = config
         self.pretrain_root = pretrain_root
-        self.fmri_latent_dim = model.cond_stage_model.fmri_latent_dim
+        self.fmri_latent_dim = model.control_stage_model.fmri_latent_dim
         self.metafile = metafile
 
     def finetune(self, trainers, dataset, test_dataset, bs1, lr1,
@@ -104,6 +109,8 @@ class fLDM:
         self.model.learning_rate = lr1
         self.model.train_cond_stage_only = True
         self.model.eval_avg = config.eval_avg
+        #import pdb
+        #pdb.set_trace()
         trainers.fit(self.model, dataloader, val_dataloaders=test_loader)
 
         self.model.unfreeze_whole_model()

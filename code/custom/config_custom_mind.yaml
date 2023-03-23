@@ -10,8 +10,8 @@ model:
     #
     first_stage_key: image
     #
-    cond_stage_key: fmri
-    control_key: hint
+    cond_stage_key: txt
+    control_key: fmri
     image_size: 64
     channels: 3
     cond_stage_trainable: true
@@ -23,17 +23,19 @@ model:
     control_stage_config:
       target: custom.cldm.ControlNet
       params:
-        image_size: 32 # unused
-        in_channels: 4
+        image_size: 64 # unused
+        in_channels: 3
         hint_channels: 3
-        model_channels: 320
-        attention_resolutions: [ 4, 2, 1 ]
+        model_channels: 192
+        attention_resolutions: [ 8, 4, 2 ]
         num_res_blocks: 2
-        channel_mult: [ 1, 2, 4, 4 ]
-        num_heads: 8
+        channel_mult: [ 1, 2, 3, 5 ]
+        num_heads: 1
         use_spatial_transformer: True
         transformer_depth: 1
+        # 留个疑问 明天断点ControlNet cross attention
         context_dim: 768
+        #context_dim: 320
         use_checkpoint: True
         legacy: False
 
@@ -59,7 +61,7 @@ model:
         transformer_depth: 1
         context_dim: 512
         cond_scale: 1.0
-        use_time_cond: true
+        use_time_cond: false
         global_pool: false
     
     first_stage_config:
@@ -85,8 +87,4 @@ model:
           target: torch.nn.Identity
     
     cond_stage_config:
-      target: dc_ldm.modules.encoders.modules.ClassEmbedder
-      params:
-        n_classes: 1001
-        embed_dim: 512
-        key: class_label
+      target: dc_ldm.modules.encoders.modules.FrozenCLIPEmbedder

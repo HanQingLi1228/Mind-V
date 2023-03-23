@@ -377,6 +377,11 @@ class fmri_encoder(nn.Module):
         return x  
 
     def forward(self, imgs):
+        #import pdb
+        #qpdb.set_trace()
+        # imgs 
+        #imgs['c_crossattn'][0].shape: torch.Size([50, 1, 1, 4656])
+        
         if imgs.ndim == 2:
             imgs = torch.unsqueeze(imgs, dim=0)  # N, n_seq, embed_dim
         latent = self.forward_encoder(imgs) # N, n_seq, embed_dim

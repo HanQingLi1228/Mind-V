@@ -325,6 +325,7 @@ class Kamitani_dataset(Dataset):
     def __getitem__(self, index):
         #self.fmri[index] len==50; self.fmri[0].shape: (4656,)
         fmri = self.fmri[index]
+        prompt = "a high-quality, detailed, and professional image"
         #fmri (4656,)
         if index >= len(self.image):
             img = np.zeros_like(self.image[0])
@@ -341,7 +342,10 @@ class Kamitani_dataset(Dataset):
                     'image_class': img_class, 'image_class_name': img_class_name, 'naive_label':naive_label}
         else:
             #return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img)}
-            return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img), 'hint': self.fmri_transform(fmri)}
+            #return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img), 'hint': self.fmri_transform(fmri)}
+            #import pdb
+            #pdb.set_trace()
+            return {'fmri': self.fmri_transform(fmri), 'image': self.image_transform(img), 'txt': prompt}
 
 class base_dataset(Dataset):
     def __init__(self, x, y=None, transform=identity):

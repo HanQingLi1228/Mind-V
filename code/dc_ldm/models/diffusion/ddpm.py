@@ -5,6 +5,7 @@ https://github.com/openai/improved-diffusion/blob/e94489283bb876ac1477d5dd7709bb
 https://github.com/CompVis/taming-transformers
 -- merci
 """
+
 import os
 import torch
 import torch.nn as nn
@@ -405,6 +406,9 @@ class DDPM(pl.LightningModule):
                 latent = item[0] # fmri embedding
                 gt_image = rearrange(item[1], 'h w c -> 1 c h w') # h w c
                 print(f"rendering {num_samples} examples in {ddim_steps} steps.")
+                A
+                import pdb
+                pdb.set_trace()
                 c = model.get_learned_conditioning(repeat(latent, 'h w -> c h w', c=num_samples).to(self.device))
                 samples_ddim, _ = sampler.sample(S=ddim_steps, 
                                                 conditioning=c,
@@ -561,6 +565,7 @@ class DDPM(pl.LightningModule):
             params = params + [self.logvar]
         opt = torch.optim.AdamW(params, lr=lr)
         return opt
+
 
 
 class LatentDiffusion(DDPM):
@@ -1496,6 +1501,9 @@ class DiffusionWrapper(pl.LightningModule):
         return out
 '''
 
+
+
+
 class DDPM(pl.LightningModule):
     # classic DDPM with Gaussian diffusion, in image space
     def __init__(self,
@@ -1576,7 +1584,8 @@ class DDPM(pl.LightningModule):
                                linear_start=linear_start, linear_end=linear_end, cosine_s=cosine_s)
 
         self.loss_type = loss_type
-
+        self.run_full_validation_threshold = 0.0
+        self.validation_count = 0
         self.learn_logvar = learn_logvar
         logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,))
         if self.learn_logvar:
@@ -1890,6 +1899,8 @@ class DDPM(pl.LightningModule):
         return loss, loss_dict
 
     def training_step(self, batch, batch_idx):
+        import pdb
+        pdb.set_trace()
         for k in self.ucg_training:
             p = self.ucg_training[k]["p"]
             val = self.ucg_training[k]["val"]
@@ -1913,14 +1924,165 @@ class DDPM(pl.LightningModule):
 
         return loss
 
-    @torch.no_grad()
+    '''@torch.no_grad()
     def validation_step(self, batch, batch_idx):
+        #import pdb
+        #pdb.set_trace()
         _, loss_dict_no_ema = self.shared_step(batch)
         with self.ema_scope():
             _, loss_dict_ema = self.shared_step(batch)
             loss_dict_ema = {key + '_ema': loss_dict_ema[key] for key in loss_dict_ema}
         self.log_dict(loss_dict_no_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True)
         self.log_dict(loss_dict_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True)
+'''
+    @torch.no_grad()
+    def generate(self, data, num_samples, ddim_steps=300, HW=None, limit=None, state=None):
+        # fmri_embedding: n, seq_len, embed_dim
+        all_samples = []
+        if HW is None:
+            shape = (self.p_channels, 
+                self.p_image_size, self.p_image_size)
+        else:
+            num_resolutions = len(self.ch_mult)
+            shape = (self.p_channels,
+                HW[0] // 2**(num_resolutions-1), HW[1] // 2**(num_resolutions-1))
+
+        model = self
+        sampler = PLMSSampler(model)
+        # sampler = DDIMSampler(model)
+        model.eval()
+        if torch.cuda.is_available():
+            state = torch.cuda.get_rng_state() if state is None else state
+            torch.cuda.set_rng_state(state)
+        else:
+            state = torch.get_rng_state() if state is None else state
+            torch.set_rng_state(state)
+
+        # rng = torch.Generator(device=self.device).manual_seed(2022).set_state(state)
+
+        # state = torch.cuda.get_rng_state()    
+        with model.ema_scope():
+            for count, item in enumerate(zip(data['txt'], data['image'], data['fmri'])):
+                #import pdb
+                #pdb.set_trace()
+                if limit is not None:
+                    if count >= limit:
+                        break
+                latent = item[0] # txt embedding
+                gt_image = rearrange(item[1], 'h w c -> 1 c h w') # h w c
+                fmri = item[2]
+                fmri = model.get_control_feature(repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device))
+                print(f"rendering {num_samples} examples in {ddim_steps} steps.")
+                # fmri [1, 4656] (control)
+                # fmri: [3, 77, 512] (c_concat)
+                #c = model.get_learned_conditioning(repeat(latent, 'h w -> c h w', c=num_samples).to(self.device))
+                txt_latent = []
+                for i in range(num_samples):
+                    txt_latent.append(latent)
+                c = model.get_learned_conditioning(txt_latent)
+                c.to(self.device)
+                #import pdb
+                #pdb.set_trace()
+                condition = dict(c_crossattn=[c], c_concat=[fmri])
+                samples_ddim, _ = sampler.sample(S=ddim_steps, 
+                                                conditioning=condition,
+                                                batch_size=num_samples,
+                                                shape=shape,
+                                                verbose=False,
+                                                generator=None)
+                # samples_ddim [B, 4, 64, 64]
+                x_samples_ddim = model.decode_first_stage(samples_ddim)
+                # x_samples_ddim [B, 3, 512, 512]
+                x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0,min=0.0, max=1.0)
+                gt_image = torch.clamp((gt_image+1.0)/2.0,min=0.0, max=1.0)
+                gt_image = F.interpolate(gt_image, scale_factor=2, mode='nearest')
+                all_samples.append(torch.cat([gt_image.detach().cpu(), x_samples_ddim.detach().cpu()], dim=0)) # put groundtruth at first
+        
+        #import pdb
+        #pdb.set_trace()
+        '''a = torch.randint(0, 1, (4, 3, 512, 512))
+        all_samples.append(a)
+        all_samples.append(a)
+        all_samples.append(a)
+        all_samples.append(a)
+        all_samples.append(a)'''
+        # display as grid
+        grid = torch.stack(all_samples, 0)
+        grid = rearrange(grid, 'n b c h w -> (n b) c h w')
+        grid = make_grid(grid, nrow=num_samples+1)
+
+        # to image
+        grid = 255. * rearrange(grid, 'c h w -> h w c').cpu().numpy()
+        return grid, (255. * torch.stack(all_samples, 0).cpu().numpy()).astype(np.uint8), state
+
+
+    @torch.no_grad()
+    def validation_step(self, batch, batch_idx):
+        if batch_idx != 0:
+            return
+        
+        if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
+            self.full_validation(batch)
+        else:
+            grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=3, limit=5)
+            metric, metric_list = self.get_eval_metric(all_samples, avg=self.eval_avg)
+            grid_imgs = Image.fromarray(grid.astype(np.uint8))
+            self.logger.log_image(key=f'samples_test', images=[grid_imgs])
+            metric_dict = {f'val/{k}':v for k, v in zip(metric_list, metric)}
+            self.logger.log_metrics(metric_dict)
+            if metric[-1] > self.run_full_validation_threshold:
+                self.full_validation(batch, state=state)
+        self.validation_count += 1
+
+    def full_validation(self, batch, state=None):
+        print('###### run full validation! ######\n')
+        grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=5, limit=None, state=state)
+        metric, metric_list = self.get_eval_metric(all_samples)
+        self.save_images(all_samples, suffix='%.4f'%metric[-1])
+        metric_dict = {f'val/{k}_full':v for k, v in zip(metric_list, metric)}
+        self.logger.log_metrics(metric_dict)
+        grid_imgs = Image.fromarray(grid.astype(np.uint8))
+        self.logger.log_image(key=f'samples_test_full', images=[grid_imgs])
+        if metric[-1] > self.best_val:
+            self.best_val = metric[-1]
+            torch.save(
+                {
+                    'model_state_dict': self.state_dict(),
+                    'config': self.main_config,
+                    'state': state
+
+                },
+                os.path.join(self.output_path, 'checkpoint_best.pth')
+            )
+
+    def get_eval_metric(self, samples, avg=True):
+        metric_list = ['mse', 'pcc', 'ssim', 'psm']
+        res_list = []
+        
+        gt_images = [img[0] for img in samples]
+        gt_images = rearrange(np.stack(gt_images), 'n c h w -> n h w c')
+        samples_to_run = np.arange(1, len(samples[0])) if avg else [1]
+        for m in metric_list:
+            res_part = []
+            for s in samples_to_run:
+                pred_images = [img[s] for img in samples]
+                pred_images = rearrange(np.stack(pred_images), 'n c h w -> n h w c')
+                res = get_similarity_metric(pred_images, gt_images, method='pair-wise', metric_name=m)
+                res_part.append(np.mean(res))
+            res_list.append(np.mean(res_part))     
+        res_part = []
+        for s in samples_to_run:
+            pred_images = [img[s] for img in samples]
+            pred_images = rearrange(np.stack(pred_images), 'n c h w -> n h w c')
+            res = get_similarity_metric(pred_images, gt_images, 'class', None, 
+                            n_way=50, num_trials=50, top_k=1, device='cuda')
+            res_part.append(np.mean(res))
+        res_list.append(np.mean(res_part))
+        res_list.append(np.max(res_part))
+        metric_list.append('top-1-class')
+        metric_list.append('top-1-class (max)')
+
+        return res_list, metric_list   
 
     def on_train_batch_end(self, *args, **kwargs):
         if self.use_ema:
@@ -2161,9 +2323,12 @@ class LatentDiffusion(DDPM):
         return self.scale_factor * z
 
     def get_learned_conditioning(self, c):
+        #import pdb
+        #pdb.set_trace()
         if self.cond_stage_forward is None:
             if hasattr(self.cond_stage_model, 'encode') and callable(self.cond_stage_model.encode):
                 c = self.cond_stage_model.encode(c)
+                # c[50, 77, 768] ? CLIPOutput 是这个？
                 if isinstance(c, DiagonalGaussianDistribution):
                     c = c.mode()
             else:
@@ -2172,6 +2337,10 @@ class LatentDiffusion(DDPM):
             assert hasattr(self.cond_stage_model, self.cond_stage_forward)
             c = getattr(self.cond_stage_model, self.cond_stage_forward)(c)
         return c
+
+    def get_control_feature(self, f):
+        f = self.control_stage_model(f)
+        return f
 
     def meshgrid(self, h, w):
         y = torch.arange(0, h).view(h, 1, 1).repeat(1, w, 1)
@@ -2265,6 +2434,8 @@ class LatentDiffusion(DDPM):
     @torch.no_grad()
     def get_input(self, batch, k, return_first_stage_outputs=False, force_c_encode=False,
                   cond_key=None, return_original_cond=False, bs=None, return_x=False):
+        #import pdb
+        #pdb.set_trace()
         x = super().get_input(batch, k)
         if bs is not None:
             x = x[:bs]
@@ -2333,16 +2504,17 @@ class LatentDiffusion(DDPM):
     def shared_step(self, batch, **kwargs):
         #import pdb
         #pdb.set_trace()
+        # get input : 3维fmri转crossattn and concat
         x, c = self.get_input(batch, self.first_stage_key)
         loss = self(x, c)
         return loss
 
     def forward(self, x, c, *args, **kwargs):
-        #import pdb
-        #pdb.set_trace()
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None
+            #import pdb
+            #pdb.set_trace()
             if self.cond_stage_trainable:
                 c = self.get_learned_conditioning(c)
             if self.shorten_cond_schedule:  # TODO: drop this option

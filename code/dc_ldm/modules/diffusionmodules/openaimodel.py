@@ -7,6 +7,7 @@ import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
+from dc_ldm.util import exists
 import torch
 
 
@@ -19,7 +20,8 @@ from dc_ldm.modules.diffusionmodules.util import (
     normalization,
     timestep_embedding,
 )
-from dc_ldm.modules.attention import SpatialTransformer
+#from dc_ldm.modules.attention import SpatialTransformer
+from dc_ldm.modules.attention2 import SpatialTransformer
 
 
 # dummy replace
@@ -84,8 +86,12 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
             if isinstance(layer, TimestepBlock):
                 x = layer(x, emb)
             elif isinstance(layer, SpatialTransformer):
+            #elif isinstance(layer, ST2):
                 x = layer(x, context)
             else:
+                #import pdb
+                #pdb.set_trace()
+                # x from fmri过mae, shape[3, 77, 512]
                 x = layer(x)
         return x
 
@@ -470,7 +476,10 @@ class UNetModel(nn.Module):
         legacy=True,
         cond_scale=1.0,
         global_pool=False,
-        use_time_cond=False
+        use_time_cond=False,
+        num_attention_blocks=None,
+        disable_self_attentions=None,
+        use_linear_in_transformer=False
     ):
         super().__init__()
         if use_spatial_transformer:
@@ -562,17 +571,25 @@ class UNetModel(nn.Module):
                     if legacy:
                         #num_heads = 1
                         dim_head = ch // num_heads if use_spatial_transformer else num_head_channels
-                    layers.append(
-                        AttentionBlock(
-                            ch,
-                            use_checkpoint=use_checkpoint,
-                            num_heads=num_heads,
-                            num_head_channels=dim_head,
-                            use_new_attention_order=use_new_attention_order,
-                        ) if not use_spatial_transformer else SpatialTransformer(
-                            ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim,cond_scale=cond_scale
+                    if exists(disable_self_attentions):
+                        disabled_sa = disable_self_attentions[level]
+                    else:
+                        disabled_sa = False
+
+                    if not exists(num_attention_blocks) or nr < num_attention_blocks[level]:
+                        layers.append(
+                            AttentionBlock(
+                                ch,
+                                use_checkpoint=use_checkpoint,
+                                num_heads=num_heads,
+                                num_head_channels=dim_head,
+                                use_new_attention_order=use_new_attention_order,
+                            ) if not use_spatial_transformer else SpatialTransformer(
+                                ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim,
+                                disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer,
+                                use_checkpoint=use_checkpoint
+                            )
                         )
-                    )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
                 self._feature_size += ch
                 input_block_chans.append(ch)
@@ -625,8 +642,10 @@ class UNetModel(nn.Module):
                 num_head_channels=dim_head,
                 use_new_attention_order=use_new_attention_order,
             ) if not use_spatial_transformer else SpatialTransformer(
-                            ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim, cond_scale=cond_scale
-                        ),
+                                ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim,
+                                disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer,
+                                use_checkpoint=use_checkpoint
+                            ),
             ResBlock(
                 ch,
                 time_embed_dim,
@@ -671,8 +690,10 @@ class UNetModel(nn.Module):
                             num_head_channels=dim_head,
                             use_new_attention_order=use_new_attention_order,
                         ) if not use_spatial_transformer else SpatialTransformer(
-                            ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim,cond_scale=cond_scale
-                        )
+                                ch, num_heads, dim_head, depth=transformer_depth, context_dim=context_dim,
+                                disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer,
+                                use_checkpoint=use_checkpoint
+                            )
                     )
                 if level and i == num_res_blocks:
                     out_ch = ch
