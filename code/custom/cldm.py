@@ -346,6 +346,7 @@ class ControlLDM(LatentDiffusion):
         #x: [B=50, 3, 64, 64] c:[B=50, 1, 1, 4656]
         #import pdb
         #pdb.set_trace()
+        get_fmri_feature = self.get_control_feature
         x, c = super().get_input(batch, self.first_stage_key, *args, **kwargs)
         # control [B=50, 1, 4656]
         control = batch[self.control_key]
@@ -354,6 +355,10 @@ class ControlLDM(LatentDiffusion):
         control = control.to(self.device)
         #control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
+        #control = einops.rearrange(control, 'b h w  -> b c h w', c=1)
+        control = get_fmri_feature(control)
+        control = repeat(control, 'c h w ->  c b h w', b=3)
+
         return x, dict(c_crossattn=[c], c_concat=[control])
 
     def apply_model(self, x_noisy, t, cond, *args, **kwargs):

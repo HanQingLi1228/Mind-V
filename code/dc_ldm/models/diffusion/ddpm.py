@@ -1899,8 +1899,8 @@ class DDPM(pl.LightningModule):
         return loss, loss_dict
 
     def training_step(self, batch, batch_idx):
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
         for k in self.ucg_training:
             p = self.ucg_training[k]["p"]
             val = self.ucg_training[k]["val"]
@@ -2018,7 +2018,8 @@ class DDPM(pl.LightningModule):
 
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
-        if batch_idx != 0:
+        return None
+        '''if batch_idx != 0:
             return
         
         if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
@@ -2032,7 +2033,7 @@ class DDPM(pl.LightningModule):
             self.logger.log_metrics(metric_dict)
             if metric[-1] > self.run_full_validation_threshold:
                 self.full_validation(batch, state=state)
-        self.validation_count += 1
+        self.validation_count += 1'''
 
     def full_validation(self, batch, state=None):
         print('###### run full validation! ######\n')
