@@ -49,7 +49,7 @@ class fLDM:
     def __init__(self, metafile, num_voxels, device=torch.device('cpu'),
                  pretrain_root='../pretrains/ldm/label2img',
                  logger=None, ddim_steps=250, global_pool=True, use_time_cond=True):
-        self.ckp_path = os.path.join(pretrain_root, 'mind-vis-add-control.pth')
+        self.ckp_path = os.path.join(pretrain_root, 'mind-vis-add-control.ckpt')
         self.config_path = '/home/hanqingli/Mind-V/code/custom/config_custom_control.yaml' 
         config = OmegaConf.load(self.config_path)
         config.model.params.unet_config.params.use_time_cond = use_time_cond
@@ -58,7 +58,9 @@ class fLDM:
         self.cond_dim = config.model.params.unet_config.params.context_dim
 
         model = instantiate_from_config(config.model)
-        pl_sd = torch.load(self.ckp_path, map_location="cpu")['state_dict']
+        #import pdb
+        #pdb.set_trace()
+        pl_sd = torch.load(self.ckp_path, map_location="cpu")
         #import pdb
         #pdb.set_trace()
 

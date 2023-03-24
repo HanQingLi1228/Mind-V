@@ -5,7 +5,7 @@ import os
 
 #input_path = sys.argv[1]
 input_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/v1-5-pruned.ckpt"
-output_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/mind-vis-add-control.pth"
+output_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/mind-vis-add-control.ckpt"
 
 assert os.path.exists(input_path), 'Input model does not exist.'
 assert not os.path.exists(output_path), 'Output filename already exists.'
