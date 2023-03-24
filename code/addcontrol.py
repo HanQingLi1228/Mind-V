@@ -4,16 +4,16 @@ import os
 #assert len(sys.argv) == 3, 'Args are wrong.'
 
 #input_path = sys.argv[1]
-input_path = "/userhome/cs2/ethanlii/mind-vis/pretrains/GOD/finetuned.pth"
-output_path = "/userhome/cs2/ethanlii/mind-vis/pretrains/GOD/a.pth"
+input_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/v1-5-pruned.ckpt"
+output_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/mind-vis-add-control.pth"
 
 assert os.path.exists(input_path), 'Input model does not exist.'
 assert not os.path.exists(output_path), 'Output filename already exists.'
 assert os.path.exists(os.path.dirname(output_path)), 'Output path is not valid.'
 
 import torch
-from ControlNet.share import *
-from ControlNet.cldm.model import create_model
+#from ControlNet.share import *
+from custom.model import create_model
 
 
 def get_node_name(name, parent_name):
@@ -25,13 +25,15 @@ def get_node_name(name, parent_name):
     return True, name[len(parent_name):]
 
 
-model = create_model(config_path='/userhome/cs2/ethanlii/mind-vis/ControlNet/models/cldm_v15.yaml')
+model = create_model(config_path='/home/hanqingli/Mind-V/code/custom/config_custom_control.yaml')
 
 pretrained_weights = torch.load(input_path)
 if 'state_dict' in pretrained_weights:
     pretrained_weights = pretrained_weights['state_dict']
 
 scratch_dict = model.state_dict()
+#print(scratch_dict)
+
 
 target_dict = {}
 for k in scratch_dict.keys():
