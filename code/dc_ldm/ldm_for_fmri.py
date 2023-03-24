@@ -104,7 +104,20 @@ class fLDM:
         print('\n##### Stage One: only optimize conditional encoders #####')
         dataloader = DataLoader(dataset, batch_size=bs1, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False)
+
+        '''before_need_grad = []
+        before_no_need_grad = []
+        for names, param in self.model.named_parameters():
+            if param.requires_grad == True:
+                before_need_grad.append(names)
+            elif param.requires_grad == False:
+                before_no_need_grad.append(names)
+            else:
+                print(names)  '''      
+
         self.model.unfreeze_whole_model()
+        self.model.freeze_diffusion_model()
+        self.model.freeze_cond_stage()
         self.model.freeze_first_stage()
         #import pdb
         #pdb.set_trace()
@@ -113,7 +126,21 @@ class fLDM:
         self.model.eval_avg = config.eval_avg
         #import pdb
         #pdb.set_trace()
+        '''need_grad = []
+        no_need_grad = []
+        for names, param in self.model.named_parameters():
+            if param.requires_grad == True:
+                need_grad.append(names)
+            elif param.requires_grad == False:
+                no_need_grad.append(names)
+            else:
+                print(names)
+        import pdb
+        pdb.set_trace() '''
+        # 可训练参数（just control_model(COntrolNet) and Control_stage_model(MAE)） -> 641 keys
+        # compare origin mindvis : (cond_stage_model(MAE) + diffusion_model) -> 995 keys
         trainers.fit(self.model, dataloader, val_dataloaders=test_loader)
+        
 
         self.model.unfreeze_whole_model()
         

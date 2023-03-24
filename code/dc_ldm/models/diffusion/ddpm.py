@@ -2271,6 +2271,14 @@ class LatentDiffusion(DDPM):
         for param in self.first_stage_model.parameters():
             param.requires_grad = True
 
+    def freeze_control_stage(self):
+        for param in self.control_stage_model.parameters():
+            param.requires_grad = False
+    
+    def unfreeze_control_stage(self):
+        for param in self.control_stage_model.parameters():
+            param.requires_grad = True
+
     def freeze_whole_model(self):
         self.first_stage_model.trainable = False
         for param in self.parameters():
