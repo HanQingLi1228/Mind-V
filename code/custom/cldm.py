@@ -302,7 +302,7 @@ class ControlNet(nn.Module):
         emb = self.time_embed(t_emb)
         #import pdb
         #pdb.set_trace()
-        # hint [3, 77, 512]
+        # hint [3, 77, 768]
         # emb [3, 1280]
         # context [B, 77, 768]
         guided_hint = self.input_hint_block(hint, emb, context)
@@ -316,6 +316,7 @@ class ControlNet(nn.Module):
             #print(module)
             if guided_hint is not None:
                 h = module(h, emb, context)
+                # 目前的hint（fmri）写法是直接跟image相加（肯定不合理），考虑作为controlnet部分的crossattn
                 ####留了个坑！
                 guided_hint = h
                 # 第一个module出来, [3, 320, 64, 64]
