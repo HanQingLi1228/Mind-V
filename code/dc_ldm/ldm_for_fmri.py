@@ -49,7 +49,7 @@ class fLDM:
     def __init__(self, metafile, num_voxels, device=torch.device('cpu'),
                  pretrain_root='../pretrains/ldm/label2img',
                  logger=None, ddim_steps=250, global_pool=True, use_time_cond=True):
-        self.ckp_path = os.path.join(pretrain_root, 'mind-vis-add-control.ckpt')
+        self.ckp_path = os.path.join(pretrain_root, 'mind-vis-add-control_sd2.ckpt')
         self.config_path = '/home/hanqingli/Mind-V/code/custom/config_custom_control.yaml' 
         config = OmegaConf.load(self.config_path)
         config.model.params.unet_config.params.use_time_cond = use_time_cond
@@ -126,17 +126,29 @@ class fLDM:
         self.model.eval_avg = config.eval_avg
         #import pdb
         #pdb.set_trace()
-        '''need_grad = []
-        no_need_grad = []
-        for names, param in self.model.named_parameters():
+        # need_grad = []
+        # no_need_grad = []
+        # for names, param in self.model.named_parameters():
+        #     if param.requires_grad == True:
+        #         need_grad.append(names)
+        #     elif param.requires_grad == False:
+        #         no_need_grad.append(names)
+        #     else:
+        #         print(names)
+        # import pdb
+        # pdb.set_trace()
+
+        '''aaa = 0
+        bbb = 0
+        totall = 0
+        for param in self.model.parameters():
             if param.requires_grad == True:
-                need_grad.append(names)
+                aaa += param.numel()
             elif param.requires_grad == False:
-                no_need_grad.append(names)
-            else:
-                print(names)
-        import pdb
-        pdb.set_trace() '''
+                bbb += param.numel()
+            totall += param.numel()'''
+        #import pdb
+        #pdb.set_trace()
         # 可训练参数（just control_model(COntrolNet) and Control_stage_model(MAE)） -> 641 keys
         # compare origin mindvis : (cond_stage_model(MAE) + diffusion_model) -> 995 keys
         trainers.fit(self.model, dataloader, val_dataloaders=test_loader)

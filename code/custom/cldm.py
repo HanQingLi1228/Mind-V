@@ -22,8 +22,6 @@ from einops import repeat
 class ControlledUnetModel(UNetModel):
     def forward(self, x, timesteps=None, context=None, control=None, only_mid_control=False, **kwargs):
         hs = []
-        #import pdb
-        #pdb.set_trace()
         with torch.no_grad():
             t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
             emb = self.time_embed(t_emb)
@@ -90,6 +88,8 @@ class ControlNet(nn.Module):
             num_attention_blocks=None,
             disable_middle_self_attn=False,
             use_linear_in_transformer=False,
+            use_time_cond=False,
+            global_pool=False
     ):
         super().__init__()
         if use_spatial_transformer:
@@ -292,6 +292,13 @@ class ControlNet(nn.Module):
         )
         self.middle_block_out = self.make_zero_conv(ch)
         self._feature_size += ch
+        self.use_time_cond = use_time_cond
+        if use_time_cond:
+            self.time_embed_condtion = nn.Sequential(
+                nn.Conv1d(77, 77//2, 1, bias=True),
+                nn.Conv1d(77//2, 1, 1, bias=True),
+                nn.Linear(context_dim, time_embed_dim, bias=True)
+            ) if global_pool == False else nn.Linear(context_dim, time_embed_dim, bias=True)
 
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
@@ -305,8 +312,17 @@ class ControlNet(nn.Module):
         # hint [3, 77, 768]
         # emb [3, 1280]
         # context [B, 77, 768]
-        guided_hint = self.input_hint_block(hint, emb, context)
+        #guided_hint = self.input_hint_block(hint, emb, context)
         # guided_hint [320, 10, 96]
+        if self.use_time_cond: # add time conditioning
+            #import pdb
+            #pdb.set_trace()
+            #context [3, 77, 768] 
+            #原c [3, 1, 768]
+            c = self.time_embed_condtion(hint)
+            assert c.shape[1] == 1, f'found {c.shape}'
+            emb = emb + torch.squeeze(c, dim=1)
+
         outs = []
         #import pdb
         #pdb.set_trace()
@@ -314,20 +330,21 @@ class ControlNet(nn.Module):
         h = x.type(self.dtype)
         for module, zero_conv in zip(self.input_blocks, self.zero_convs):
             #print(module)
-            if guided_hint is not None:
-                h = module(h, emb, context)
-                # 目前的hint（fmri）写法是直接跟image相加（肯定不合理），考虑作为controlnet部分的crossattn
-                ####留了个坑！
-                guided_hint = h
-                # 第一个module出来, [3, 320, 64, 64]
-                h += guided_hint
-                guided_hint = None
-            else:
-                h = module(h, emb, context)
-            outs.append(zero_conv(h, emb, context))
+            # if guided_hint is not None:
+            #     h = module(h, emb, context)
+            #     # 目前的hint（fmri）写法是直接跟image相加（肯定不合理），考虑作为controlnet部分的crossattn
+            #     ####留了个坑！
+            #     #guided_hint = h
+            #     # 第一个module出来, [3, 320, 64, 64]
+            #     #h += guided_hint
+            #     #guided_hint = None
+            # else:
+            #     h = module(h, emb, context)
+            h = module(h, emb, hint)
+            outs.append(zero_conv(h, emb, hint))
 
-        h = self.middle_block(h, emb, context)
-        outs.append(self.middle_block_out(h, emb, context))
+        h = self.middle_block(h, emb, hint)
+        outs.append(self.middle_block_out(h, emb, hint))
 
         return outs
 
@@ -358,7 +375,7 @@ class ControlLDM(LatentDiffusion):
         control = control.to(memory_format=torch.contiguous_format).float()
         #control = einops.rearrange(control, 'b h w  -> b c h w', c=1)
         control = get_fmri_feature(control)
-        control = repeat(control, 'c h w ->  c b h w', b=3)
+        #control = repeat(control, 'c h w ->  c b h w', b=3)
 
         return x, dict(c_crossattn=[c], c_concat=[control])
 

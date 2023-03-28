@@ -2290,6 +2290,8 @@ class LatentDiffusion(DDPM):
             param.requires_grad = True
 
     def instantiate_cond_stage(self, config):
+        #import pdb
+        #pdb.set_trace()
         if not self.cond_stage_trainable:
             if config == "__is_first_stage__":
                 print("Using first stage also as cond stage.")
@@ -2337,7 +2339,7 @@ class LatentDiffusion(DDPM):
         if self.cond_stage_forward is None:
             if hasattr(self.cond_stage_model, 'encode') and callable(self.cond_stage_model.encode):
                 c = self.cond_stage_model.encode(c)
-                # c[50, 77, 768] ? CLIPOutput 是这个？
+                # c[50, 77, 1024] 
                 if isinstance(c, DiagonalGaussianDistribution):
                     c = c.mode()
             else:

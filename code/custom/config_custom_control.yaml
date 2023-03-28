@@ -14,7 +14,7 @@ model:
     control_key: fmri
     image_size: 64
     channels: 4
-    cond_stage_trainable: true
+    cond_stage_trainable: False
     conditioning_key: crossattn
     monitor: val/loss
     use_ema: False
@@ -33,11 +33,14 @@ model:
         channel_mult: [ 1, 2, 4, 4 ]
         num_heads: 8
         use_spatial_transformer: True
+        use_linear_in_transformer: True
         transformer_depth: 1
-        context_dim: 768
+        context_dim: 1024
         #context_dim: 320
         use_checkpoint: True
         legacy: False
+        use_time_cond: true
+        global_pool: false
 
     unet_config:
       target: custom.cldm.ControlledUnetModel
@@ -58,8 +61,9 @@ model:
         - 4
         num_heads: 8
         use_spatial_transformer: true
+        use_linear_in_transformer: True
         transformer_depth: 1
-        context_dim: 768
+        context_dim: 1024
         cond_scale: 1.0
         use_time_cond: false
         global_pool: false
@@ -87,4 +91,7 @@ model:
           target: torch.nn.Identity
     
     cond_stage_config:
-      target: dc_ldm.modules.encoders.modules.FrozenCLIPEmbedder
+      target: dc_ldm.modules.encoders.modules.FrozenOpenCLIPEmbedder
+      params:
+        freeze: True
+        layer: "penultimate"
