@@ -36,6 +36,8 @@ class control_stage_model(nn.Module):
         self.global_pool = global_pool
 
     def forward(self, x):
+        import pdb
+        pdb.set_trace()
         # n, c, w = x.shape
         latent_crossattn = self.mae(x)
         if self.global_pool == False:
@@ -61,8 +63,8 @@ class fLDM:
         #import pdb
         #pdb.set_trace()
         pl_sd = torch.load(self.ckp_path, map_location="cpu")
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         m, u = model.load_state_dict(pl_sd, strict=False)
         #model.cond_stage_trainable = True
@@ -119,8 +121,8 @@ class fLDM:
         self.model.freeze_diffusion_model()
         self.model.freeze_cond_stage()
         self.model.freeze_first_stage()
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         self.model.learning_rate = lr1
         self.model.train_cond_stage_only = True
         self.model.eval_avg = config.eval_avg
@@ -147,8 +149,8 @@ class fLDM:
             elif param.requires_grad == False:
                 bbb += param.numel()
             totall += param.numel()'''
-        #import pdb
-        #pdb.set_trace()
+        import pdb
+        pdb.set_trace()
         # 可训练参数（just control_model(COntrolNet) and Control_stage_model(MAE)） -> 641 keys
         # compare origin mindvis : (cond_stage_model(MAE) + diffusion_model) -> 995 keys
         trainers.fit(self.model, dataloader, val_dataloaders=test_loader)
@@ -187,18 +189,29 @@ class fLDM:
             
         with model.ema_scope():
             model.eval()
+            #import pdb
+            #pdb.set_trace()
             for count, item in enumerate(fmri_embedding):
                 if limit is not None:
                     if count >= limit:
                         break
-                latent = item['fmri']
+                fmri = item['fmri']
                 gt_image = rearrange(item['image'], 'h w c -> 1 c h w') # h w c
+                
+                txt = item['txt']
+                txt_latent = []
+                for i in range(num_samples):
+                    txt_latent.append(txt)
+                c = model.get_learned_conditioning(txt_latent)
+                c.to(self.device)
+
                 print(f"rendering {num_samples} examples in {ddim_steps} steps.")
                 # assert latent.shape[-1] == self.fmri_latent_dim, 'dim error'
                 
-                c = model.get_learned_conditioning(repeat(latent, 'h w -> c h w', c=num_samples).to(self.device))
+                fmri = model.get_control_feature(repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device))
+                condition = dict(c_crossattn=[c], c_concat=[fmri])
                 samples_ddim, _ = sampler.sample(S=ddim_steps, 
-                                                conditioning=c,
+                                                conditioning=condition,
                                                 batch_size=num_samples,
                                                 shape=shape,
                                                 verbose=False)
@@ -206,7 +219,7 @@ class fLDM:
                 x_samples_ddim = model.decode_first_stage(samples_ddim)
                 x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
                 gt_image = torch.clamp((gt_image+1.0)/2.0, min=0.0, max=1.0)
-                
+                gt_image = F.interpolate(gt_image, scale_factor=2, mode='nearest')
                 all_samples.append(torch.cat([gt_image, x_samples_ddim.detach().cpu()], dim=0)) # put groundtruth at first
                 
         

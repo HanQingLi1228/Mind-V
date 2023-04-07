@@ -22,11 +22,13 @@ from einops import repeat
 class ControlledUnetModel(UNetModel):
     def forward(self, x, timesteps=None, context=None, control=None, only_mid_control=False, **kwargs):
         hs = []
+        import pdb
+        pdb.set_trace()
         with torch.no_grad():
             t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
             emb = self.time_embed(t_emb)
             #import pdb
-            #Cpdb.set_trace()
+            #pdb.set_trace()
             '''if self.use_time_cond: # add time conditioning
                 #import pdb
                 #pdb.set_trace()
@@ -305,6 +307,8 @@ class ControlNet(nn.Module):
 
     def forward(self, x, hint, timesteps, context, **kwargs):
         # timesteps [3]
+        import pdb
+        pdb.set_trace()
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
         #import pdb
@@ -315,11 +319,9 @@ class ControlNet(nn.Module):
         #guided_hint = self.input_hint_block(hint, emb, context)
         # guided_hint [320, 10, 96]
         if self.use_time_cond: # add time conditioning
-            #import pdb
-            #pdb.set_trace()
-            #context [3, 77, 768] 
-            #原c [3, 1, 768]
+            # hint [B, 77, 1024]
             c = self.time_embed_condtion(hint)
+            # c [B, 1, 1280]
             assert c.shape[1] == 1, f'found {c.shape}'
             emb = emb + torch.squeeze(c, dim=1)
 
@@ -364,6 +366,7 @@ class ControlLDM(LatentDiffusion):
         #x: [B=50, 3, 64, 64] c:[B=50, 1, 1, 4656]
         #import pdb
         #pdb.set_trace()
+        #print(batch['image'])
         get_fmri_feature = self.get_control_feature
         x, c = super().get_input(batch, self.first_stage_key, *args, **kwargs)
         # control [B=50, 1, 4656]

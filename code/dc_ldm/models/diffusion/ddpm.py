@@ -1596,6 +1596,7 @@ class DDPM(pl.LightningModule):
         self.ucg_training = ucg_training or dict()
         if self.ucg_training:
             self.ucg_prng = np.random.RandomState()
+        self.best_val = 0.0
 
     def re_init_ema(self):
         if self.use_ema:
@@ -2018,10 +2019,10 @@ class DDPM(pl.LightningModule):
 
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
-        return None
-        '''if batch_idx != 0:
+        # import pdb
+        # pdb.set_trace()
+        if batch_idx != 0:
             return
-        
         if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
             self.full_validation(batch)
         else:
@@ -2033,7 +2034,7 @@ class DDPM(pl.LightningModule):
             self.logger.log_metrics(metric_dict)
             if metric[-1] > self.run_full_validation_threshold:
                 self.full_validation(batch, state=state)
-        self.validation_count += 1'''
+        self.validation_count += 1
 
     def full_validation(self, batch, state=None):
         print('###### run full validation! ######\n')
@@ -2055,6 +2056,24 @@ class DDPM(pl.LightningModule):
                 },
                 os.path.join(self.output_path, 'checkpoint_best.pth')
             )
+
+    def save_images(self, all_samples, suffix=0):
+        if self.output_path is not None:
+            os.makedirs(os.path.join(self.output_path, 'val', f'{self.validation_count}_{suffix}'), exist_ok=True)
+            for sp_idx, imgs in enumerate(all_samples):
+                for copy_idx, img in enumerate(imgs[1:]):
+                    img = rearrange(img, 'c h w -> h w c')
+                    Image.fromarray(img).save(os.path.join(self.output_path, 'val', 
+                                    f'{self.validation_count}_{suffix}', f'test{sp_idx}-{copy_idx}.png'))
+        else:
+            self.output_path="/home/hanqingli/Mind-V/results/image"
+            os.makedirs(os.path.join(self.output_path, 'val', f'{self.validation_count}_{suffix}'), exist_ok=True)
+            for sp_idx, imgs in enumerate(all_samples):
+                for copy_idx, img in enumerate(imgs[1:]):
+                    img = rearrange(img, 'c h w -> h w c')
+                    Image.fromarray(img).save(os.path.join(self.output_path, 'val', 
+                                    f'{self.validation_count}_{suffix}', f'test{sp_idx}-{copy_idx}.png'))
+
 
     def get_eval_metric(self, samples, avg=True):
         metric_list = ['mse', 'pcc', 'ssim', 'psm']
@@ -2521,6 +2540,8 @@ class LatentDiffusion(DDPM):
         return loss
 
     def forward(self, x, c, *args, **kwargs):
+        import pdb
+        pdb.set_trace()
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None

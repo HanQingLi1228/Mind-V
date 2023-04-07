@@ -7,9 +7,7 @@ model:
     num_timesteps_cond: 1
     log_every_t: 200
     timesteps: 1000
-    #
     first_stage_key: image
-    #
     cond_stage_key: txt
     control_key: fmri
     image_size: 64
@@ -31,7 +29,8 @@ model:
         attention_resolutions: [ 4, 2, 1 ]
         num_res_blocks: 2
         channel_mult: [ 1, 2, 4, 4 ]
-        num_heads: 8
+        #num_heads: 8
+        num_head_channels: 64
         use_spatial_transformer: True
         use_linear_in_transformer: True
         transformer_depth: 1
@@ -59,7 +58,8 @@ model:
         - 2
         - 4
         - 4
-        num_heads: 8
+        #num_heads: 8
+        num_head_channels: 64
         use_spatial_transformer: true
         use_linear_in_transformer: True
         transformer_depth: 1

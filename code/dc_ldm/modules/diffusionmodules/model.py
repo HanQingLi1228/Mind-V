@@ -474,7 +474,8 @@ class Decoder(nn.Module):
         self.in_channels = in_channels
         self.give_pre_end = give_pre_end
         self.tanh_out = tanh_out
-
+        # import pdb
+        # pdb.set_trace()
         # compute in_ch_mult, block_in and curr_res at lowest res
         in_ch_mult = (1,)+tuple(ch_mult)
         block_in = ch*ch_mult[self.num_resolutions-1]
@@ -533,6 +534,8 @@ class Decoder(nn.Module):
                                         padding=1)
 
     def forward(self, z):
+        import pdb
+        pdb.set_trace()
         #assert z.shape[1:] == self.z_shape[1:]
         self.last_z_shape = z.shape
 
