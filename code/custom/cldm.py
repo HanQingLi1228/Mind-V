@@ -18,12 +18,13 @@ from dc_ldm.modules.diffusionmodules.util import (
     timestep_embedding,
 )
 from einops import repeat
+from dc_ldm.ldm_for_fmri import control_stage_model
 
 class ControlledUnetModel(UNetModel):
     def forward(self, x, timesteps=None, context=None, control=None, only_mid_control=False, **kwargs):
         hs = []
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         with torch.no_grad():
             t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
             emb = self.time_embed(t_emb)
@@ -301,14 +302,16 @@ class ControlNet(nn.Module):
                 nn.Conv1d(77//2, 1, 1, bias=True),
                 nn.Linear(context_dim, time_embed_dim, bias=True)
             ) if global_pool == False else nn.Linear(context_dim, time_embed_dim, bias=True)
+        #metafile = torch.load('./pretrains/GOD/fmri_encoder.pth', map_location='cpu')
+        #self.control_stage_model = control_stage_model(metafile, 4656, 1024, global_pool=False)
 
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
     def forward(self, x, hint, timesteps, context, **kwargs):
         # timesteps [3]
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
         #import pdb
@@ -367,7 +370,7 @@ class ControlLDM(LatentDiffusion):
         #import pdb
         #pdb.set_trace()
         #print(batch['image'])
-        get_fmri_feature = self.get_control_feature
+        #get_fmri_feature = self.get_control_feature
         x, c = super().get_input(batch, self.first_stage_key, *args, **kwargs)
         # control [B=50, 1, 4656]
         control = batch[self.control_key]
@@ -377,7 +380,7 @@ class ControlLDM(LatentDiffusion):
         #control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
         #control = einops.rearrange(control, 'b h w  -> b c h w', c=1)
-        control = get_fmri_feature(control)
+        control = self.get_control_feature(control)
         #control = repeat(control, 'c h w ->  c b h w', b=3)
 
         return x, dict(c_crossattn=[c], c_concat=[control])
@@ -484,6 +487,9 @@ class ControlLDM(LatentDiffusion):
         if not self.sd_locked:
             params += list(self.model.diffusion_model.output_blocks.parameters())
             params += list(self.model.diffusion_model.out.parameters())
+        if self.control_stage_trainable:
+            print(f"{self.__class__.__name__}: Also optimizing mae_encoder params!")
+            params = params + list(self.control_stage_model.parameters())
         opt = torch.optim.AdamW(params, lr=lr)
         return opt
 
@@ -491,10 +497,12 @@ class ControlLDM(LatentDiffusion):
         if is_diffusing:
             self.model = self.model.cuda()
             self.control_model = self.control_model.cuda()
+            self.control_stage_model = self.control_stage_model.cuda()
             self.first_stage_model = self.first_stage_model.cpu()
             self.cond_stage_model = self.cond_stage_model.cpu()
         else:
             self.model = self.model.cpu()
             self.control_model = self.control_model.cpu()
+            self.control_stage_model = self.control_stage_model.cpu()
             self.first_stage_model = self.first_stage_model.cuda()
             self.cond_stage_model = self.cond_stage_model.cuda()

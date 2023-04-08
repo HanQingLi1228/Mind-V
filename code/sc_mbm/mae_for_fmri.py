@@ -362,8 +362,12 @@ class fmri_encoder(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward_encoder(self, x):
+        # import pdb
+        # pdb.set_trace()
         # embed patches
+        # x [3, 1, 4656]
         x = self.patch_embed(x)
+        #x [B, 291, 1024]
 
         # add pos embed w/o cls token
         x = x + self.pos_embed[:, 1:, :]
@@ -377,8 +381,8 @@ class fmri_encoder(nn.Module):
         return x  
 
     def forward(self, imgs):
-        #import pdb
-        #qpdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         # imgs 
         #imgs['c_crossattn'][0].shape: torch.Size([50, 1, 1, 4656])
         

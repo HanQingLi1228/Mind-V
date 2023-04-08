@@ -2021,20 +2021,21 @@ class DDPM(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # import pdb
         # pdb.set_trace()
-        if batch_idx != 0:
-            return
-        if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
-            self.full_validation(batch)
-        else:
-            grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=3, limit=5)
-            metric, metric_list = self.get_eval_metric(all_samples, avg=self.eval_avg)
-            grid_imgs = Image.fromarray(grid.astype(np.uint8))
-            self.logger.log_image(key=f'samples_test', images=[grid_imgs])
-            metric_dict = {f'val/{k}':v for k, v in zip(metric_list, metric)}
-            self.logger.log_metrics(metric_dict)
-            if metric[-1] > self.run_full_validation_threshold:
-                self.full_validation(batch, state=state)
-        self.validation_count += 1
+        # if batch_idx != 0:
+        #     return
+        # if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
+        #     self.full_validation(batch)
+        # else:
+        #     grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=3, limit=5)
+        #     metric, metric_list = self.get_eval_metric(all_samples, avg=self.eval_avg)
+        #     grid_imgs = Image.fromarray(grid.astype(np.uint8))
+        #     self.logger.log_image(key=f'samples_test', images=[grid_imgs])
+        #     metric_dict = {f'val/{k}':v for k, v in zip(metric_list, metric)}
+        #     self.logger.log_metrics(metric_dict)
+        #     if metric[-1] > self.run_full_validation_threshold:
+        #         self.full_validation(batch, state=state)
+        # self.validation_count += 1
+        return None
 
     def full_validation(self, batch, state=None):
         print('###### run full validation! ######\n')
@@ -2369,6 +2370,7 @@ class LatentDiffusion(DDPM):
         return c
 
     def get_control_feature(self, f):
+        #self.control_stage_model.train()
         f = self.control_stage_model(f)
         return f
 
@@ -2540,8 +2542,8 @@ class LatentDiffusion(DDPM):
         return loss
 
     def forward(self, x, c, *args, **kwargs):
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None

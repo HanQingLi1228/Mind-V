@@ -34,11 +34,17 @@ class control_stage_model(nn.Module):
             )
         self.dim_mapper = nn.Linear(self.fmri_latent_dim, cond_dim, bias=True)
         self.global_pool = global_pool
+        #self.mm = torch.zeros(8, 32).cuda()
 
     def forward(self, x):
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         # n, c, w = x.shape
+        # if not (self.mm).equal(self.mae.blocks[0].mlp.fc1.weight):
+        #     self.mm = self.mae.blocks[0].mlp.fc1.weight
+        #     print(self.mm)
+        print(self.mae.blocks[0].mlp.fc1.weight)
+        #print(self.channel_mapper[0].weight)
         latent_crossattn = self.mae(x)
         if self.global_pool == False:
             latent_crossattn = self.channel_mapper(latent_crossattn)
@@ -69,6 +75,7 @@ class fLDM:
         m, u = model.load_state_dict(pl_sd, strict=False)
         #model.cond_stage_trainable = True
         model.cond_stage_trainable = False
+        model.control_stage_trainable = True
         #model.cond_stage_model = cond_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
         model.control_stage_model = control_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
 
@@ -116,7 +123,8 @@ class fLDM:
                 before_no_need_grad.append(names)
             else:
                 print(names)  '''      
-
+        # import pdb
+        # pdb.set_trace()
         self.model.unfreeze_whole_model()
         self.model.freeze_diffusion_model()
         self.model.freeze_cond_stage()
@@ -149,8 +157,8 @@ class fLDM:
             elif param.requires_grad == False:
                 bbb += param.numel()
             totall += param.numel()'''
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         # 可训练参数（just control_model(COntrolNet) and Control_stage_model(MAE)） -> 641 keys
         # compare origin mindvis : (cond_stage_model(MAE) + diffusion_model) -> 995 keys
         trainers.fit(self.model, dataloader, val_dataloaders=test_loader)
