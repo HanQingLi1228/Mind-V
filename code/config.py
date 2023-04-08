@@ -119,5 +119,5 @@ class Config_Generative_Model:
         self.HW = None
         # resume check util
         self.model_meta = None
-        self.checkpoint_path = '/home/hanqingli/Mind-V/results/generation/30-03-2023-03-02-01/checkpoint_best.pth' # os.path.join(self.root_path, 'results/generation/25-08-2022-08:02:55/checkpoint.pth')
+        self.checkpoint_path = None #'/home/hanqingli/Mind-V/results/generation/30-03-2023-03-02-01/checkpoint_best.pth' # os.path.join(self.root_path, 'results/generation/25-08-2022-08:02:55/checkpoint.pth')
         

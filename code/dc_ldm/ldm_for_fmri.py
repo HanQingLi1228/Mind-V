@@ -77,7 +77,7 @@ class fLDM:
         model.cond_stage_trainable = False
         model.control_stage_trainable = True
         #model.cond_stage_model = cond_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
-        model.control_stage_model = control_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
+        #model.control_stage_model = control_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)
 
         model.ddim_steps = ddim_steps
         model.re_init_ema()
@@ -92,7 +92,8 @@ class fLDM:
         self.model = model
         self.ldm_config = config
         self.pretrain_root = pretrain_root
-        self.fmri_latent_dim = model.control_stage_model.fmri_latent_dim
+        #self.fmri_latent_dim = model.control_stage_model.fmri_latent_dim
+        self.fmri_latent_dim = 1024
         self.metafile = metafile
 
     def finetune(self, trainers, dataset, test_dataset, bs1, lr1,

@@ -1972,7 +1972,7 @@ class DDPM(pl.LightningModule):
                 latent = item[0] # txt embedding
                 gt_image = rearrange(item[1], 'h w c -> 1 c h w') # h w c
                 fmri = item[2]
-                fmri = model.get_control_feature(repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device))
+                #fmri = model.get_control_feature(repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device))
                 print(f"rendering {num_samples} examples in {ddim_steps} steps.")
                 # fmri [1, 4656] (control)
                 # fmri: [3, 77, 512] (c_concat)

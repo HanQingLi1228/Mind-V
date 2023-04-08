@@ -302,8 +302,22 @@ class ControlNet(nn.Module):
                 nn.Conv1d(77//2, 1, 1, bias=True),
                 nn.Linear(context_dim, time_embed_dim, bias=True)
             ) if global_pool == False else nn.Linear(context_dim, time_embed_dim, bias=True)
-        #metafile = torch.load('./pretrains/GOD/fmri_encoder.pth', map_location='cpu')
-        #self.control_stage_model = control_stage_model(metafile, 4656, 1024, global_pool=False)
+
+        #######    
+        metafile = torch.load('./pretrains/GOD/fmri_encoder.pth', map_location='cpu')
+        self.control_stage_model = control_stage_model(metafile, 4656, 1024, global_pool=False)
+        # fmri_encode_model = create_model_from_config(metafile['config'], num_voxels, global_pool)
+        # model.load_checkpoint(metafile['model'])
+        # self.mae = model
+        # self.fmri_seq_len = model.num_patches
+        # self.fmri_latent_dim = model.embed_dim
+        # if global_pool == False:
+        #     self.channel_mapper = nn.Sequential(
+        #         nn.Conv1d(self.fmri_seq_len, self.fmri_seq_len // 2, 1, bias=True),
+        #         nn.Conv1d(self.fmri_seq_len // 2, 77, 1, bias=True)
+        #     )
+        # self.dim_mapper = nn.Linear(self.fmri_latent_dim, cond_dim, bias=True)
+        # self.global_pool = global_pool
 
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
@@ -312,6 +326,9 @@ class ControlNet(nn.Module):
         # timesteps [3]
         # import pdb
         # pdb.set_trace()
+
+        hint = self.control_stage_model(hint)
+
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
         #import pdb
@@ -380,7 +397,7 @@ class ControlLDM(LatentDiffusion):
         #control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
         #control = einops.rearrange(control, 'b h w  -> b c h w', c=1)
-        control = self.get_control_feature(control)
+        #control = self.get_control_feature(control)
         #control = repeat(control, 'c h w ->  c b h w', b=3)
 
         return x, dict(c_crossattn=[c], c_concat=[control])
@@ -487,9 +504,9 @@ class ControlLDM(LatentDiffusion):
         if not self.sd_locked:
             params += list(self.model.diffusion_model.output_blocks.parameters())
             params += list(self.model.diffusion_model.out.parameters())
-        if self.control_stage_trainable:
-            print(f"{self.__class__.__name__}: Also optimizing mae_encoder params!")
-            params = params + list(self.control_stage_model.parameters())
+        # if self.control_stage_trainable:
+        #     print(f"{self.__class__.__name__}: Also optimizing mae_encoder params!")
+        #     params = params + list(self.control_stage_model.parameters())
         opt = torch.optim.AdamW(params, lr=lr)
         return opt
 
