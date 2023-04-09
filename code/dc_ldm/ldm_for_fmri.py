@@ -43,7 +43,7 @@ class control_stage_model(nn.Module):
         # if not (self.mm).equal(self.mae.blocks[0].mlp.fc1.weight):
         #     self.mm = self.mae.blocks[0].mlp.fc1.weight
         #     print(self.mm)
-        print(self.mae.blocks[0].mlp.fc1.weight)
+        #print(self.mae.blocks[0].mlp.fc1.weight)
         #print(self.channel_mapper[0].weight)
         latent_crossattn = self.mae(x)
         if self.global_pool == False:
@@ -73,7 +73,7 @@ class fLDM:
         # pdb.set_trace()
 
         m, u = model.load_state_dict(pl_sd, strict=False)
-        #model.cond_stage_trainable = True
+        #model.cond_cstage_trainable = True
         model.cond_stage_trainable = False
         model.control_stage_trainable = True
         #model.cond_stage_model = cond_stage_model(metafile, num_voxels, self.cond_dim, global_pool=global_pool)

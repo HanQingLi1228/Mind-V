@@ -432,6 +432,8 @@ class Encoder(nn.Module):
                                         padding=1)
 
     def forward(self, x):
+        # import pdb
+        # pdb.set_trace()
         # timestep embedding
         temb = None
 
@@ -534,9 +536,10 @@ class Decoder(nn.Module):
                                         padding=1)
 
     def forward(self, z):
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         #assert z.shape[1:] == self.z_shape[1:]
+        # z.shape [3, 4, 64, 64]
         self.last_z_shape = z.shape
 
         # timestep embedding
@@ -544,6 +547,7 @@ class Decoder(nn.Module):
 
         # z to block_in
         h = self.conv_in(z)
+        # h [3, 512, 64, 64]
 
         # middle
         h = self.mid.block_1(h, temb)

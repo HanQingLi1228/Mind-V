@@ -382,10 +382,10 @@ class ControlLDM(LatentDiffusion):
 
     @torch.no_grad()
     def get_input(self, batch, k, bs=None, *args, **kwargs):
+        # import pdb
+        # pdb.set_trace()
         # batch dict: dict_keys(['fmri', 'image', 'hint'])
         #x: [B=50, 3, 64, 64] c:[B=50, 1, 1, 4656]
-        #import pdb
-        #pdb.set_trace()
         #print(batch['image'])
         #get_fmri_feature = self.get_control_feature
         x, c = super().get_input(batch, self.first_stage_key, *args, **kwargs)
@@ -403,8 +403,8 @@ class ControlLDM(LatentDiffusion):
         return x, dict(c_crossattn=[c], c_concat=[control])
 
     def apply_model(self, x_noisy, t, cond, *args, **kwargs):
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         ## 报错 cond.shape:[3, 77, 512]
         assert isinstance(cond, dict)
         # self.model.diffusion_model : type ControlUnet

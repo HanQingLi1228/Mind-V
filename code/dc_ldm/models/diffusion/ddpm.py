@@ -1900,8 +1900,8 @@ class DDPM(pl.LightningModule):
         return loss, loss_dict
 
     def training_step(self, batch, batch_idx):
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         for k in self.ucg_training:
             p = self.ucg_training[k]["p"]
             val = self.ucg_training[k]["val"]
@@ -1972,10 +1972,10 @@ class DDPM(pl.LightningModule):
                 latent = item[0] # txt embedding
                 gt_image = rearrange(item[1], 'h w c -> 1 c h w') # h w c
                 fmri = item[2]
+                fmri = repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device)
                 #fmri = model.get_control_feature(repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device))
                 print(f"rendering {num_samples} examples in {ddim_steps} steps.")
-                # fmri [1, 4656] (control)
-                # fmri: [3, 77, 512] (c_concat)
+
                 #c = model.get_learned_conditioning(repeat(latent, 'h w -> c h w', c=num_samples).to(self.device))
                 txt_latent = []
                 for i in range(num_samples):
@@ -1996,7 +1996,7 @@ class DDPM(pl.LightningModule):
                 # x_samples_ddim [B, 3, 512, 512]
                 x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0,min=0.0, max=1.0)
                 gt_image = torch.clamp((gt_image+1.0)/2.0,min=0.0, max=1.0)
-                gt_image = F.interpolate(gt_image, scale_factor=2, mode='nearest')
+                #gt_image = F.interpolate(gt_image, scale_factor=2, mode='nearest')
                 all_samples.append(torch.cat([gt_image.detach().cpu(), x_samples_ddim.detach().cpu()], dim=0)) # put groundtruth at first
         
         #import pdb
@@ -2021,21 +2021,21 @@ class DDPM(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # import pdb
         # pdb.set_trace()
-        # if batch_idx != 0:
-        #     return
-        # if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
-        #     self.full_validation(batch)
-        # else:
-        #     grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=3, limit=5)
-        #     metric, metric_list = self.get_eval_metric(all_samples, avg=self.eval_avg)
-        #     grid_imgs = Image.fromarray(grid.astype(np.uint8))
-        #     self.logger.log_image(key=f'samples_test', images=[grid_imgs])
-        #     metric_dict = {f'val/{k}':v for k, v in zip(metric_list, metric)}
-        #     self.logger.log_metrics(metric_dict)
-        #     if metric[-1] > self.run_full_validation_threshold:
-        #         self.full_validation(batch, state=state)
-        # self.validation_count += 1
-        return None
+        if batch_idx != 0:
+            return
+        if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
+            self.full_validation(batch)
+        else:
+            grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=3, limit=5)
+            metric, metric_list = self.get_eval_metric(all_samples, avg=self.eval_avg)
+            grid_imgs = Image.fromarray(grid.astype(np.uint8))
+            self.logger.log_image(key=f'samples_test', images=[grid_imgs])
+            metric_dict = {f'val/{k}':v for k, v in zip(metric_list, metric)}
+            self.logger.log_metrics(metric_dict)
+            if metric[-1] > self.run_full_validation_threshold:
+                self.full_validation(batch, state=state)
+        self.validation_count += 1
+        # return None
 
     def full_validation(self, batch, state=None):
         print('###### run full validation! ######\n')
@@ -2291,13 +2291,13 @@ class LatentDiffusion(DDPM):
         for param in self.first_stage_model.parameters():
             param.requires_grad = True
 
-    def freeze_control_stage(self):
-        for param in self.control_stage_model.parameters():
-            param.requires_grad = False
+    # def freeze_control_stage(self):
+    #     for param in self.control_stage_model.parameters():
+    #         param.requires_grad = False
     
-    def unfreeze_control_stage(self):
-        for param in self.control_stage_model.parameters():
-            param.requires_grad = True
+    # def unfreeze_control_stage(self):
+    #     for param in self.control_stage_model.parameters():
+    #         param.requires_grad = True
 
     def freeze_whole_model(self):
         self.first_stage_model.trainable = False
@@ -2364,6 +2364,7 @@ class LatentDiffusion(DDPM):
                     c = c.mode()
             else:
                 c = self.cond_stage_model(c)
+                # FrozenCLIPEncoder
         else:
             assert hasattr(self.cond_stage_model, self.cond_stage_forward)
             c = getattr(self.cond_stage_model, self.cond_stage_forward)(c)
@@ -2466,18 +2467,21 @@ class LatentDiffusion(DDPM):
     @torch.no_grad()
     def get_input(self, batch, k, return_first_stage_outputs=False, force_c_encode=False,
                   cond_key=None, return_original_cond=False, bs=None, return_x=False):
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         x = super().get_input(batch, k)
         if bs is not None:
             x = x[:bs]
         x = x.to(self.device)
         encoder_posterior = self.encode_first_stage(x)
+        #encoder_posterior type: DiagonalGaussianDistribution
         z = self.get_first_stage_encoding(encoder_posterior).detach()
+        # z [5,4,32,32]???应该64啊
 
         if self.model.conditioning_key is not None and not self.force_null_conditioning:
             if cond_key is None:
                 cond_key = self.cond_stage_key
+                # cond_key = 'txt'
             if cond_key != self.first_stage_key:
                 if cond_key in ['caption', 'coordinates_bbox', "txt"]:
                     xc = batch[cond_key]
@@ -2516,6 +2520,7 @@ class LatentDiffusion(DDPM):
             out.extend([x])
         if return_original_cond:
             out.append(xc)
+        # out: z:[B, 4, 32, 32]; c[B, 77, 1024]
         return out
 
     @torch.no_grad()
@@ -2534,8 +2539,8 @@ class LatentDiffusion(DDPM):
         return self.first_stage_model.encode(x)
 
     def shared_step(self, batch, **kwargs):
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         # get input : 3维fmri转crossattn and concat
         x, c = self.get_input(batch, self.first_stage_key)
         loss = self(x, c)
@@ -2544,6 +2549,7 @@ class LatentDiffusion(DDPM):
     def forward(self, x, c, *args, **kwargs):
         # import pdb
         # pdb.set_trace()
+        # c: ['c_crossattn']: [B, 77, 1024]; ['c_concat']: [B, 1, 4656]
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None
@@ -2592,6 +2598,9 @@ class LatentDiffusion(DDPM):
         return mean_flat(kl_prior) / np.log(2.0)
 
     def p_losses(self, x_start, cond, t, noise=None):
+        # import pdb
+        # pdb.set_trace()
+        # noise [B, 4, 32, 32]
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         model_output = self.apply_model(x_noisy, t, cond)
@@ -2611,13 +2620,14 @@ class LatentDiffusion(DDPM):
         loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
 
+
         logvar_t = self.logvar[t].to(self.device)
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         # loss = loss_simple / torch.exp(self.logvar) + self.logvar
         if self.learn_logvar:
             loss_dict.update({f'{prefix}/loss_gamma': loss.mean()})
             loss_dict.update({'logvar': self.logvar.data.mean()})
-
+        
         loss = self.l_simple_weight * loss.mean()
 
         loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2, 3))
