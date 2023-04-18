@@ -29,6 +29,7 @@ from dc_ldm.models.diffusion.plms import PLMSSampler
 from PIL import Image
 import torch.nn.functional as F
 from eval_metrics import get_similarity_metric
+from torch.utils.tensorboard import SummaryWriter
 
 __conditioning_keys__ = {'concat': 'c_concat',
                          'crossattn': 'c_crossattn',
@@ -1597,6 +1598,7 @@ class DDPM(pl.LightningModule):
         if self.ucg_training:
             self.ucg_prng = np.random.RandomState()
         self.best_val = 0.0
+        self.writer = SummaryWriter('/home/hanqingli/Mind-V/results/tensorboard_log')
 
     def re_init_ema(self):
         if self.use_ema:
@@ -1913,6 +1915,9 @@ class DDPM(pl.LightningModule):
 
         loss, loss_dict = self.shared_step(batch)
 
+        self.writer.add_scalar("loss", loss, self.trainer.current_epoch)
+
+
         self.log_dict(loss_dict, prog_bar=True,
                       logger=True, on_step=True, on_epoch=True)
 
@@ -1963,7 +1968,14 @@ class DDPM(pl.LightningModule):
 
         # state = torch.cuda.get_rng_state()    
         with model.ema_scope():
+            count_num = 0
+            # cc = 0
             for count, item in enumerate(zip(data['txt'], data['image'], data['fmri'])):
+                count_num += 1
+                print(count_num)
+                # cc += 1
+                # if cc > 1:
+                #     break
                 #import pdb
                 #pdb.set_trace()
                 if limit is not None:
@@ -1992,6 +2004,8 @@ class DDPM(pl.LightningModule):
                                                 verbose=False,
                                                 generator=None)
                 # samples_ddim [B, 4, 64, 64]
+                # import pdb
+                # pdb.set_trace()
                 x_samples_ddim = model.decode_first_stage(samples_ddim)
                 # x_samples_ddim [B, 3, 512, 512]
                 x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0,min=0.0, max=1.0)
@@ -2021,25 +2035,36 @@ class DDPM(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # import pdb
         # pdb.set_trace()
-        if batch_idx != 0:
-            return
-        if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
-            self.full_validation(batch)
-        else:
-            grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=3, limit=5)
-            metric, metric_list = self.get_eval_metric(all_samples, avg=self.eval_avg)
-            grid_imgs = Image.fromarray(grid.astype(np.uint8))
-            self.logger.log_image(key=f'samples_test', images=[grid_imgs])
-            metric_dict = {f'val/{k}':v for k, v in zip(metric_list, metric)}
-            self.logger.log_metrics(metric_dict)
-            if metric[-1] > self.run_full_validation_threshold:
-                self.full_validation(batch, state=state)
-        self.validation_count += 1
-        # return None
+
+        self.full_validation(batch)
+        import pdb
+        pdb.set_trace()
+        # if batch_idx != 0:
+        #     return
+        # if self.validation_count % 15 == 0 and self.trainer.current_epoch != 0:
+        # #if self.trainer.current_epoch != 0: 
+        #     self.full_validation(batch)
+        # else:
+        #     grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=3, limit=5)
+        #     metric, metric_list = self.get_eval_metric(all_samples, avg=self.eval_avg)
+        #     grid_imgs = Image.fromarray(grid.astype(np.uint8))
+        #     self.logger.log_image(key=f'samples_test', images=[grid_imgs])
+        #     metric_dict = {f'val/{k}':v for k, v in zip(metric_list, metric)}
+        #     self.logger.log_metrics(metric_dict)
+        #     print("metrix:", metric)
+        #     if metric[-1] > self.run_full_validation_threshold:
+        #         self.full_validation(batch, state=state)
+        # self.validation_count += 1
+        return None
 
     def full_validation(self, batch, state=None):
         print('###### run full validation! ######\n')
         grid, all_samples, state = self.generate(batch, ddim_steps=self.ddim_steps, num_samples=5, limit=None, state=state)
+        
+        # self.save_images(all_samples)
+        # import pdb
+        # pdb.set_trace()
+        
         metric, metric_list = self.get_eval_metric(all_samples)
         self.save_images(all_samples, suffix='%.4f'%metric[-1])
         metric_dict = {f'val/{k}_full':v for k, v in zip(metric_list, metric)}
@@ -2470,13 +2495,13 @@ class LatentDiffusion(DDPM):
         # import pdb
         # pdb.set_trace()
         x = super().get_input(batch, k)
+        #x = F.interpolate(x, scale_factor=2, mode='nearest')
         if bs is not None:
             x = x[:bs]
         x = x.to(self.device)
         encoder_posterior = self.encode_first_stage(x)
         #encoder_posterior type: DiagonalGaussianDistribution
         z = self.get_first_stage_encoding(encoder_posterior).detach()
-        # z [5,4,32,32]???应该64啊
 
         if self.model.conditioning_key is not None and not self.force_null_conditioning:
             if cond_key is None:

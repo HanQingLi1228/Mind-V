@@ -80,6 +80,7 @@ if __name__ == '__main__':
     root = args.root
     target = args.dataset
     model_path = os.path.join(root, 'pretrains', f'{target}', 'finetuned.pth')
+    model_path = "/home/hanqingli/Mind-V/results/generation/13-04-2023-07-14-52/checkpoint_best.pth"
   
     sd = torch.load(model_path, map_location='cpu')
     config = sd['config']
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     if target == 'GOD':
         _, dataset_test = create_Kamitani_dataset(config.kam_path, config.roi, config.patch_size, 
                 fmri_transform=torch.FloatTensor, image_transform=img_transform_test, 
-                subjects=config.kam_subs, test_category=config.test_category)
+                subjects=config.kam_subs, test_category=None)
     elif target == 'BOLD5000':
         _, dataset_test = create_BOLD5000_dataset(config.bold5000_path, config.patch_size, 
                 fmri_transform=torch.FloatTensor, image_transform=img_transform_test, 

@@ -439,6 +439,8 @@ class Encoder(nn.Module):
 
         # downsampling
         hs = [self.conv_in(x)]
+        # hs [B, 128, 256, 256] 
+        # self.down: 四层网络（latent:32）,三层卷机+downsample，最后一层卷积
         for i_level in range(self.num_resolutions):
             for i_block in range(self.num_res_blocks):
                 h = self.down[i_level].block[i_block](hs[-1], temb)
@@ -453,7 +455,8 @@ class Encoder(nn.Module):
         h = self.mid.block_1(h, temb)
         h = self.mid.attn_1(h)
         h = self.mid.block_2(h, temb)
-
+        # import pdb
+        # pdb.set_trace()
         # end
         h = self.norm_out(h)
         h = nonlinearity(h)

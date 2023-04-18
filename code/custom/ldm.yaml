@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 0.0001
-  target: dc_ldm.models.diffusion.ddpm.LatentDiffusion
+  target: custom.cldm.ControlLDM
   params:
     linear_start: 0.0015
     linear_end: 0.0195
@@ -8,20 +8,22 @@ model:
     log_every_t: 200
     timesteps: 1000
     first_stage_key: image
-    cond_stage_key: fmri
+    cond_stage_key: txt
+    control_key: fmri
     image_size: 64
     channels: 3
-    cond_stage_trainable: true
+    cond_stage_trainable: False
     conditioning_key: crossattn
     monitor: val/loss
     use_ema: False
+    only_mid_control: False
     
     control_stage_config:
       target: custom.cldm.ControlNet
       params:
         image_size: 64
         in_channels: 3
-        out_channels: 3
+        hint_channels: 3
         model_channels: 192
         attention_resolutions:
         - 8
@@ -37,7 +39,7 @@ model:
         use_spatial_transformer: true
         transformer_depth: 1
         context_dim: 512
-        cond_scale: 1.0
+        #cond_scale: 1.0
         use_time_cond: true
         global_pool: false
 
@@ -63,7 +65,7 @@ model:
         transformer_depth: 1
         context_dim: 512
         cond_scale: 1.0
-        use_time_cond: true
+        use_time_cond: False
         global_pool: false
     
     first_stage_config:
@@ -89,8 +91,4 @@ model:
           target: torch.nn.Identity
     
     cond_stage_config:
-      target: dc_ldm.modules.encoders.modules.ClassEmbedder
-      params:
-        n_classes: 1001
-        embed_dim: 512
-        key: class_label
+      target: dc_ldm.modules.encoders.modules.FrozenCLIPEmbedder

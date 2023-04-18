@@ -37,8 +37,6 @@ class control_stage_model(nn.Module):
         #self.mm = torch.zeros(8, 32).cuda()
 
     def forward(self, x):
-        # import pdb
-        # pdb.set_trace()
         # n, c, w = x.shape
         # if not (self.mm).equal(self.mae.blocks[0].mlp.fc1.weight):
         #     self.mm = self.mae.blocks[0].mlp.fc1.weight
@@ -57,8 +55,8 @@ class fLDM:
     def __init__(self, metafile, num_voxels, device=torch.device('cpu'),
                  pretrain_root='../pretrains/ldm/label2img',
                  logger=None, ddim_steps=250, global_pool=True, use_time_cond=True):
-        self.ckp_path = os.path.join(pretrain_root, 'mind-vis-add-control_sd2.ckpt')
-        self.config_path = '/home/hanqingli/Mind-V/code/custom/config_custom_control.yaml' 
+        self.ckp_path = os.path.join(pretrain_root, 'model_control.ckpt')
+        self.config_path = '/home/hanqingli/Mind-V/code/custom/ldm.yaml' 
         config = OmegaConf.load(self.config_path)
         config.model.params.unet_config.params.use_time_cond = use_time_cond
         config.model.params.unet_config.params.global_pool = global_pool
@@ -66,8 +64,8 @@ class fLDM:
         self.cond_dim = config.model.params.unet_config.params.context_dim
 
         model = instantiate_from_config(config.model)
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         pl_sd = torch.load(self.ckp_path, map_location="cpu")
         # import pdb
         # pdb.set_trace()
@@ -216,8 +214,8 @@ class fLDM:
 
                 print(f"rendering {num_samples} examples in {ddim_steps} steps.")
                 # assert latent.shape[-1] == self.fmri_latent_dim, 'dim error'
-                
-                fmri = model.get_control_feature(repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device))
+                fmri = repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device)
+                #fmri = model.get_control_feature(repeat(fmri, 'h w -> c h w', c=num_samples).to(self.device))
                 condition = dict(c_crossattn=[c], c_concat=[fmri])
                 samples_ddim, _ = sampler.sample(S=ddim_steps, 
                                                 conditioning=condition,
@@ -228,7 +226,7 @@ class fLDM:
                 x_samples_ddim = model.decode_first_stage(samples_ddim)
                 x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
                 gt_image = torch.clamp((gt_image+1.0)/2.0, min=0.0, max=1.0)
-                gt_image = F.interpolate(gt_image, scale_factor=2, mode='nearest')
+                #gt_image = F.interpolate(gt_image, scale_factor=2, mode='nearest')
                 all_samples.append(torch.cat([gt_image, x_samples_ddim.detach().cpu()], dim=0)) # put groundtruth at first
                 
         

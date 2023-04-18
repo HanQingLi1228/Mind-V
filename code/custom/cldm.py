@@ -305,7 +305,8 @@ class ControlNet(nn.Module):
 
         #######    
         metafile = torch.load('./pretrains/GOD/fmri_encoder.pth', map_location='cpu')
-        self.control_stage_model = control_stage_model(metafile, 4656, 1024, global_pool=False)
+        self.control_stage_model = control_stage_model(metafile, 4656, 512, global_pool=False)
+        #self.control_stage_model = self.control_stage_model.half()
         # fmri_encode_model = create_model_from_config(metafile['config'], num_voxels, global_pool)
         # model.load_checkpoint(metafile['model'])
         # self.mae = model
@@ -379,6 +380,7 @@ class ControlLDM(LatentDiffusion):
         self.only_mid_control = only_mid_control
         self.control_scales = [1.0] * 13
         self.sd_locked = True
+        #self.fc1 = nn.linear()
 
     @torch.no_grad()
     def get_input(self, batch, k, bs=None, *args, **kwargs):
@@ -399,7 +401,6 @@ class ControlLDM(LatentDiffusion):
         #control = einops.rearrange(control, 'b h w  -> b c h w', c=1)
         #control = self.get_control_feature(control)
         #control = repeat(control, 'c h w ->  c b h w', b=3)
-
         return x, dict(c_crossattn=[c], c_concat=[control])
 
     def apply_model(self, x_noisy, t, cond, *args, **kwargs):

@@ -4,8 +4,8 @@ import os
 #assert len(sys.argv) == 3, 'Args are wrong.'
 
 #input_path = sys.argv[1]
-input_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/v2-1_512-ema-pruned.ckpt"
-output_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/mind-vis-add-control_sd2.ckpt"
+input_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/model.ckpt"
+output_path = "/home/hanqingli/Mind-V/pretrains/ldm/label2img/model_control.ckpt"
 
 assert os.path.exists(input_path), 'Input model does not exist.'
 assert not os.path.exists(output_path), 'Output filename already exists.'
@@ -25,7 +25,7 @@ def get_node_name(name, parent_name):
     return True, name[len(parent_name):]
 
 
-model = create_model(config_path='/home/hanqingli/Mind-V/code/custom/config_custom_control.yaml')
+model = create_model(config_path='/home/hanqingli/Mind-V/code/custom/ldm.yaml')
 
 
 pretrained_weights = torch.load(input_path)
